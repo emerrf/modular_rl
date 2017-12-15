@@ -8,6 +8,8 @@ from importlib import import_module
 import scipy.optimize
 from .keras_theano_setup import floatX, FNOPTS
 from keras.layers.core import Layer
+from multiprocessing import Pool, cpu_count
+import time
 
 # ================================================================
 # Make agent 
@@ -103,9 +105,44 @@ def get_paths(env, agent, cfg, seed_iter):
     if cfg["parallel"]:
         raise NotImplementedError
     else:
-        paths = do_rollouts_serial(env, agent, cfg["timestep_limit"], cfg["timesteps_per_batch"], seed_iter)
+        if not cfg.has_key("estimated_num_of_batches"):
+            cfg["estimated_num_of_batches"] = cfg["timesteps_per_batch"]
+
+        print("Start sampling... num. of batches: {}".format(cfg["estimated_num_of_batches"]))
+        start = time.time()
+        paths = do_rollouts_parallel(env, agent, cfg["timestep_limit"], cfg["estimated_num_of_batches"], seed_iter)
+        # paths = do_rollouts_serial(env, agent, cfg["timestep_limit"], cfg["timesteps_per_batch"], seed_iter)
+        end = time.time()
+        path_len_sum = np.sum([p["action"].shape[0] for p in paths])
+        path_len_mean = path_len_sum/np.float(len(paths))
+        cfg["estimated_num_of_batches"] = np.max(np.array([
+            int(cfg["timesteps_per_batch"]/path_len_mean), cpu_count()/2]))
+        print("Sampling time: {}, Batch timesteps/N: {}/{}={}, Exp. {}, new num of batches estimation: {}".format(
+            end - start, path_len_sum, len(paths), path_len_mean, cfg["timesteps_per_batch"], cfg["estimated_num_of_batches"]))
     return paths
 
+def do_rollouts_parallel(env, agent, timestep_limit, n_batches, seed_iter, ncpu=cpu_count()/2):
+
+    pool = Pool(processes=ncpu, initializer=setup_worker, initargs=(env, agent, timestep_limit))
+
+    seeds = [seed_iter.next() for _ in range(n_batches)]
+    paths = pool.map(rollout_wrap, seeds)
+    pool.close()
+    return paths
+
+def setup_worker(e, a, tl):
+    global env
+    env = e
+    global agent
+    agent = a
+    global timestep_limit
+    timestep_limit = tl
+    print("worker initialized")
+
+def rollout_wrap(seed):
+    np.random.seed(seed)
+    path = rollout(env, agent, timestep_limit)
+    return path
 
 def rollout(env, agent, timestep_limit):
     """
@@ -151,15 +188,17 @@ def pathlength(path):
 
 def animate_rollout(env, agent, n_timesteps,delay=.01):
     ob = env.reset()
-    env.render()
-    for i in xrange(n_timesteps):
+    done = False
+    i = 0
+    while not done:
         a, _info = agent.act(ob)
-        (ob, _rew, done, _info) = env.step(a)
-        env.render()
+        (ob, _rew, done, _info) = env.step(a, stochastic=False)
+        i += 1
         if done:
             print("terminated after %s timesteps"%i)
             break
-        time.sleep(delay)
+        #time.sleep(delay)
+    env.render()
 
 # ================================================================
 # Stochastic policies 

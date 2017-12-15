@@ -10,6 +10,7 @@ import argparse, sys, cPickle
 from tabulate import tabulate
 import shutil, os, logging
 import gym
+import gym_wind_turbine
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)

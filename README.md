@@ -11,7 +11,7 @@ This library is written in a modular way to allow for sharing code between TRPO 
 
 Dependencies:
 
-- keras (2.0.8)
+- keras (1.1.1)
 - theano (0.9.0)
 - tabulate
 - numpy
@@ -95,4 +95,23 @@ pol_ent_after         0.679043
 TimeElapsed           2.64527
 ------------------  -------------
 ...
+```
+
+### WindTurbine-v0 Tests
+Ubuntu 16.04.3 LTS, conda 4.3.30
+```
+
+conda create -n devenv python=2.7 theano tabulate numpy scipy mkl keras=1.1.1 matplotlib zope.interface=4.4.2 gfortran_linux-64
+source activate devenv
+unset LDFLAGS
+ln -s $FC $(dirname $FC)/gfortran
+cd CCBlade
+pip install -r requirements.txt
+cd gym-wind-turbine
+pip install -r requirements.txt
+
+
+
+THEANO_FLAGS=device=gpu0,floatX=float32 python run_pg.py --gamma=0.995 --lam=0.97 --agent=modular_rl.agentzoo.TrpoAgent --max_kl=0.01 --cg_damping=0.1 --activation=tanh --n_iter=250 --seed=0 --timesteps_per_batch=5000 --env=CartPole-v0 --outfile=outdir/CartPole-v0.h5 --video=0
+
 ```
