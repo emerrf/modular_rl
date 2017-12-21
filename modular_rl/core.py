@@ -110,8 +110,8 @@ def get_paths(env, agent, cfg, seed_iter):
 
         print("Start sampling... num. of batches: {}".format(cfg["estimated_num_of_batches"]))
         start = time.time()
-        paths = do_rollouts_parallel(env, agent, cfg["timestep_limit"], cfg["estimated_num_of_batches"], seed_iter)
-        # paths = do_rollouts_serial(env, agent, cfg["timestep_limit"], cfg["timesteps_per_batch"], seed_iter)
+        paths = do_rollouts_parallel(env, agent, cfg["timestep_limit"], cfg["estimated_num_of_batches"], seed_iter, cpu_count())
+        #paths = do_rollouts_serial(env, agent, cfg["timestep_limit"], cfg["timesteps_per_batch"], seed_iter)
         end = time.time()
         path_len_sum = np.sum([p["action"].shape[0] for p in paths])
         path_len_mean = path_len_sum/np.float(len(paths))
@@ -137,7 +137,7 @@ def setup_worker(e, a, tl):
     agent = a
     global timestep_limit
     timestep_limit = tl
-    print("worker initialized")
+    #print("worker initialized")
 
 def rollout_wrap(seed):
     np.random.seed(seed)
@@ -188,17 +188,20 @@ def pathlength(path):
 
 def animate_rollout(env, agent, n_timesteps,delay=.01):
     ob = env.reset()
+    agent.set_stochastic(False)
     done = False
     i = 0
     while not done:
         a, _info = agent.act(ob)
-        (ob, _rew, done, _info) = env.step(a, stochastic=False)
+        (ob, _rew, done, _info) = env.step(a)
         i += 1
         if done:
             print("terminated after %s timesteps"%i)
             break
         #time.sleep(delay)
     env.render()
+    time.sleep(delay)
+    agent.set_stochastic(True)
 
 # ================================================================
 # Stochastic policies 
